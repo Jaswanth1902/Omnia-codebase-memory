@@ -3,16 +3,23 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "omnia-codebase-memory"
+name = "cartograph-mcp"
 version = "1.0.0"
-description = "AST-Grounded Codebase Memory and Symbol Navigation MCP Server for AI Agents"
+description = "Deterministic Codebase Mapping, AST Symbol Navigation & Tiered Memory MCP Server"
 readme = "README.md"
 authors = [{ name = "Jaswanth Reddy", email = "jaswanthreddy1537@gmail.com" }]
 license = { text = "MIT" }
 requires-python = ">=3.10"
-dependencies = [
-    "pydantic>=2.0.0",
-]
+dependencies = []
+
+[project.optional-dependencies]
+vector = ["qdrant-client>=1.7.0"]
 
 [project.scripts]
-omnia-memory = "omnia.server:main"
+cartograph = "cartograph.server:main"
+carto = "cartograph.server:main"
+
+[project.urls]
+Homepage = "https://github.com/Jaswanth1902/Omnia-codebase-memory"
+Repository = "https://github.com/Jaswanth1902/Omnia-codebase-memory.git"
+Issues = "https://github.com/Jaswanth1902/Omnia-codebase-memory/issues"

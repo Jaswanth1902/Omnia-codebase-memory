@@ -1,11 +1,11 @@
-# 🧠 OMNIA — AST-Grounded Codebase Memory MCP Server
+# 🗺️ Cartograph — Deterministic Codebase Mapping & AST Memory MCP Server
 
-[![MCP Protocol](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol%20(MCP)-blueviolet?style=flat-square)](https://github.com/Jaswanth1902/omnia-codebase-memory)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue?style=flat-square&logo=python)](https://github.com/Jaswanth1902/omnia-codebase-memory)
-[![AST Indexing](https://img.shields.io/badge/Lookup%20Latency-%3C10ms-brightgreen?style=flat-square)](https://github.com/Jaswanth1902/omnia-codebase-memory)
+[![MCP Protocol](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol%20(MCP)-blueviolet?style=flat-square)](https://github.com/Jaswanth1902/cartograph-codebase-memory)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue?style=flat-square&logo=python)](https://github.com/Jaswanth1902/cartograph-codebase-memory)
+[![AST Indexing](https://img.shields.io/badge/Lookup%20Latency-%3C10ms-brightgreen?style=flat-square)](https://github.com/Jaswanth1902/cartograph-codebase-memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-**OMNIA** is a deterministic, high-velocity **Codebase Memory & Symbol Navigation MCP Server** designed for AI coding agents (Claude Desktop, Cursor, Antigravity IDE, Windsurf). Instead of bloating context windows with brute-force grep and multi-megabyte markdown summaries, OMNIA extracts exact **Abstract Syntax Tree (AST)** symbol topologies, call graphs, and incremental delta updates on file save.
+**Cartograph** is a deterministic, high-velocity **Codebase Memory & Symbol Navigation MCP Server** designed for AI coding agents (Claude Desktop, Cursor, Antigravity IDE, Windsurf). Instead of bloating context windows with brute-force grep and multi-megabyte markdown summaries, Cartograph extracts exact **Abstract Syntax Tree (AST)** symbol topologies, call graphs, and incremental delta updates on file save.
 
 ```
        ┌─────────────────────────────────────────────────────────────┐
@@ -15,7 +15,7 @@
                                       │ Stdio / HTTP MCP Protocol
                                       ▼
        ┌─────────────────────────────────────────────────────────────┐
-       │             OMNIA Memory MCP Server Engine                  │
+       │             Cartograph Memory MCP Server Engine                  │
        ├──────────────────────────────┬──────────────────────────────┤
        │  AST Symbol Extraction Engine │  Local Vector Store Adapter  │
        │  (Functions, Classes, Imports)│  (Qdrant / Episodic SQLite) │
@@ -28,7 +28,7 @@
 
 As someone learning to build with modern AI coding tools (Claude, Cursor, Windsurf), I noticed how quickly agent workflows slow down and burn through expensive token limits by blindly grepping files or dumping giant markdown files into context.
 
-I built **OMNIA** to improve developer Quality of Life (QOL) with a clean, creative solution:
+I built **Cartograph** to improve developer Quality of Life (QOL) with a clean, creative solution:
 - **Instant & Deterministic**: Uses Python's native AST parser to locate exact function and class signatures in `<10ms` without token waste.
 - **Zero Heavyweight Bloat**: Built purely on Python standard library AST — no massive Language Server Protocol (LSP) daemons or compilation steps.
 - **Plug-and-Play**: Connects seamlessly to Claude Desktop, Cursor, or custom agents with standard Model Context Protocol (MCP).
@@ -37,7 +37,7 @@ This project is open-source and free for anyone who wants their AI coding assist
 
 ---
 
-## ⚡ Why OMNIA?
+## ⚡ Why Cartograph?
 
 Traditional agent memory systems either suffer from **Markdown Context Bloat** (dumping raw docs into the prompt) or **Grep Blindness** (failing on multi-line signatures, inheritance, and indirect references).
 
@@ -64,8 +64,8 @@ Traditional agent memory systems either suffer from **Markdown Context Bloat** (
 
 ### 1. Installation
 ```bash
-git clone https://github.com/Jaswanth1902/omnia-codebase-memory.git
-cd omnia-codebase-memory
+git clone https://github.com/Jaswanth1902/cartograph-codebase-memory.git
+cd cartograph-codebase-memory
 
 # Install in editable mode
 pip install -e .
@@ -73,12 +73,12 @@ pip install -e .
 
 ### 2. Run via Stdio (CLI)
 ```bash
-python omnia_cli.py
+python cartograph_cli.py
 ```
 
 ### 3. Run as Standalone HTTP Server
 ```bash
-python omnia_cli.py --serve --port 8020
+python cartograph_cli.py --serve --port 8020
 ```
 
 ---
@@ -89,11 +89,11 @@ python omnia_cli.py --serve --port 8020
 ```json
 {
   "mcpServers": {
-    "omnia-memory": {
+    "cartograph-memory": {
       "command": "python",
       "args": [
         "-m",
-        "omnia.server"
+        "cartograph.server"
       ],
       "env": {
         "WORKSPACE_ROOT": "C:\\path\\to\\your\\project"
@@ -107,8 +107,8 @@ python omnia_cli.py --serve --port 8020
 ```json
 {
   "mcpServers": {
-    "omnia-memory": {
-      "command": "omnia-memory",
+    "cartograph-memory": {
+      "command": "cartograph-memory",
       "args": [],
       "env": {
         "WORKSPACE_ROOT": "${workspaceFolder}"
@@ -123,8 +123,8 @@ python omnia_cli.py --serve --port 8020
 ## 📁 Repository Structure
 
 ```text
-omnia-codebase-memory/
-├── omnia/
+cartograph-codebase-memory/
+├── cartograph/
 │   ├── __init__.py          # Package initialization
 │   ├── server.py            # Core AST parsing & MCP protocol handler
 │   ├── engrim_adapter.py    # Episodic SQLite memory driver
@@ -133,7 +133,7 @@ omnia-codebase-memory/
 │   ├── PRD.md               # Product Requirements Document
 │   ├── architecture.md      # Detailed system architecture
 │   └── Architecture-essentials.md
-├── omnia_cli.py             # CLI runner entrypoint
+├── cartograph_cli.py             # CLI runner entrypoint
 ├── pyproject.toml           # Packaging and build specification
 ├── LICENSE                  # MIT License
 └── README.md
