@@ -24,6 +24,19 @@
 
 ---
 
+## 💡 Why I Built This
+
+As someone learning to build with modern AI coding tools (Claude, Cursor, Windsurf), I noticed how quickly agent workflows slow down and burn through expensive token limits by blindly grepping files or dumping giant markdown files into context.
+
+I built **OMNIA** to improve developer Quality of Life (QOL) with a clean, creative solution:
+- **Instant & Deterministic**: Uses Python's native AST parser to locate exact function and class signatures in `<10ms` without token waste.
+- **Zero Heavyweight Bloat**: Built purely on Python standard library AST — no massive Language Server Protocol (LSP) daemons or compilation steps.
+- **Plug-and-Play**: Connects seamlessly to Claude Desktop, Cursor, or custom agents with standard Model Context Protocol (MCP).
+
+This project is open-source and free for anyone who wants their AI coding assistants to be faster, sharper, and lighter!
+
+---
+
 ## ⚡ Why OMNIA?
 
 Traditional agent memory systems either suffer from **Markdown Context Bloat** (dumping raw docs into the prompt) or **Grep Blindness** (failing on multi-line signatures, inheritance, and indirect references).
