@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omnia-codebase-memory"
+version = "1.0.0"
+description = "AST-Grounded Codebase Memory and Symbol Navigation MCP Server for AI Agents"
+readme = "README.md"
+authors = [{ name = "Jaswanth Reddy", email = "jaswanthreddy1537@gmail.com" }]
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0.0",
+]
+
+[project.scripts]
+omnia-memory = "omnia.server:main"
