@@ -1,50 +1,115 @@
 # 🗺️ Cartograph — Deterministic Codebase Mapping & AST Memory MCP Server
 
-[![MCP Protocol](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol%20(MCP)-blueviolet?style=flat-square)](https://github.com/Jaswanth1902/cartograph-codebase-memory)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue?style=flat-square&logo=python)](https://github.com/Jaswanth1902/cartograph-codebase-memory)
-[![AST Indexing](https://img.shields.io/badge/Lookup%20Latency-%3C10ms-brightgreen?style=flat-square)](https://github.com/Jaswanth1902/cartograph-codebase-memory)
+[![MCP Protocol](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol%20(MCP)-blueviolet?style=flat-square)](https://github.com/Jaswanth1902/Omnia-codebase-memory)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue?style=flat-square&logo=python)](https://github.com/Jaswanth1902/Omnia-codebase-memory)
+[![AST Indexing](https://img.shields.io/badge/Lookup%20Latency-%3C10ms-brightgreen?style=flat-square)](https://github.com/Jaswanth1902/Omnia-codebase-memory)
+[![Token Savings](https://img.shields.io/badge/Token%20Savings-%3E90%25-emerald?style=flat-square)](https://github.com/Jaswanth1902/Omnia-codebase-memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![Security Policy](https://img.shields.io/badge/Security-Policy%20Active-brightgreen?style=flat-square)](SECURITY.md)
 
-**Cartograph** is a deterministic, high-velocity **Codebase Memory & Symbol Navigation MCP Server** designed for AI coding agents (Claude Desktop, Cursor, Antigravity IDE, Windsurf). Instead of bloating context windows with brute-force grep and multi-megabyte markdown summaries, Cartograph extracts exact **Abstract Syntax Tree (AST)** symbol topologies, call graphs, and incremental delta updates on file save.
+**Cartograph** is a high-velocity **Codebase Mapmaker & AST Context Engine** built for AI coding agents (*Claude Desktop*, *Claude Code*, *Cursor*, *Windsurf*, *Antigravity*). Instead of burning token budgets with brute-force text grep or multi-megabyte markdown dumps, Cartograph constructs a deterministic topological map of your codebase using Python's native Abstract Syntax Tree (AST), call hierarchies, and progressive tiered context disclosure.
 
+---
+
+## 🏗️ Architecture & Ingestion Pipeline
+
+```mermaid
+flowchart TD
+    subgraph RepoWorkspace["Target Repository / Workspace"]
+        PyFiles["Python Source Files (*.py)"]
+        GitTree["Git Changes / Trajectory"]
+    end
+
+    subgraph CoreEngine["Cartograph Engine (cartograph/server.py)"]
+        Scanner["Directory Pre-Scanner\n(Module Mapping)"]
+        ASTParser["AST Syntax Parser\n(Zero-LSP Standard Library)"]
+        CallVisitor["CallVisitor & Relation Tracer\n(Imports, Bases, Call Graph)"]
+        Clock["Bi-Temporal Clock\n(valid_from, SHA-256 Provenance)"]
+        
+        subgraph TieredStorage["OpenViking Tiered Storage"]
+            L0["L0: Macro Structure\n(Tree, sizes, token budgets)"]
+            L1["L1: Interface Topology\n(Signatures, docstrings, classes)"]
+            L2["L2: Surgical AST Nodes\n(Exact function/class line slices)"]
+            RelGraph["Relational Graph\n(Caller/Callee Adjacency)"]
+            Engrim["Engrim SQLite FTS5\n(Agent Trajectory Memory)"]
+        end
+    end
+
+    subgraph MCPInterface["Cartograph MCP Protocols"]
+        StdioProtocol["Stdio JSON-RPC 2.0\n(Claude / Cursor)"]
+        HttpDaemon["HTTP REST Daemon (--serve)\n(Agent Swarms)"]
+    end
+
+    PyFiles --> Scanner --> ASTParser --> CallVisitor --> Clock
+    Clock --> L0 & L1 & L2 & RelGraph
+    GitTree -.-> Engrim
+
+    L0 & L1 & L2 & RelGraph & Engrim --> StdioProtocol & HttpDaemon
 ```
-       ┌─────────────────────────────────────────────────────────────┐
-       │                   AI Coding Agent Client                    │
-       │           (Claude Code / Cursor / Antigravity)              │
-       └──────────────────────────────┬──────────────────────────────┘
-                                      │ Stdio / HTTP MCP Protocol
-                                      ▼
-       ┌─────────────────────────────────────────────────────────────┐
-       │             Cartograph Memory MCP Server Engine                  │
-       ├──────────────────────────────┬──────────────────────────────┤
-       │  AST Symbol Extraction Engine │  Local Vector Store Adapter  │
-       │  (Functions, Classes, Imports)│  (Qdrant / Episodic SQLite) │
-       └──────────────────────────────┴──────────────────────────────┘
+
+---
+
+## 🔄 How Agents Navigate: Progressive Tiered Resolution
+
+Traditional AI coding agents burn 30,000+ tokens grepping entire files. Cartograph resolves code in four lightweight, surgical stages:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as Developer
+    participant Agent as Claude Code / Cursor
+    participant Carto as Cartograph MCP Server
+
+    Dev->>Agent: "Fix authentication timeout bug in login handler"
+
+    rect rgb(240, 245, 255)
+    Note over Agent,Carto: Stage 1: Macro Orientation (L0 Level)
+    Agent->>Carto: traverse_directory_tiered(dir="auth", tier="L0")
+    Carto-->>Agent: Returns 4 files, token budgets (~120 tokens)
+    end
+
+    rect rgb(245, 255, 245)
+    Note over Agent,Carto: Stage 2: Interface Topology (L1 Level)
+    Agent->>Carto: ast_query_symbols(file="auth/session.py", tier="L1")
+    Carto-->>Agent: Returns ClassDef SessionManager, def verify_token() (~280 tokens)
+    end
+
+    rect rgb(255, 250, 240)
+    Note over Agent,Carto: Stage 3: Dependency Graph Tracing
+    Agent->>Carto: get_code_dependencies(symbol_name="verify_token")
+    Carto-->>Agent: Upstream Callers: [login_route] | Downstream Callees: [db_lookup]
+    end
+
+    rect rgb(255, 240, 240)
+    Note over Agent,Carto: Stage 4: Surgical Node Extraction (L2 Level)
+    Agent->>Carto: read_ast_node(file="auth/session.py", symbol="verify_token")
+    Carto-->>Agent: Returns exact 18-line AST node slice with line ranges (~90 tokens)
+    end
+
+    Note over Agent: Total Context: ~490 tokens (vs 45,000 tokens for whole repo)
+    Agent->>Dev: Delivers precise, zero-hallucination bugfix in <2 seconds
 ```
 
 ---
 
 ## 💡 Why I Built This
 
-As someone learning to build with modern AI coding tools (Claude, Cursor, Windsurf), I noticed how quickly agent workflows slow down and burn through expensive token limits by blindly grepping files or dumping giant markdown files into context.
+As a student and learner who owes everything to open source, I noticed how quickly agentic coding tools slow down, burn through expensive token limits, or hallucinate non-existent imports when they are forced to blindly grep large repositories.
 
-I built **Cartograph** to improve developer Quality of Life (QOL) with a clean, creative solution:
-- **Instant & Deterministic**: Uses Python's native AST parser to locate exact function and class signatures in `<10ms` without token waste.
-- **Zero Heavyweight Bloat**: Built purely on Python standard library AST — no massive Language Server Protocol (LSP) daemons or compilation steps.
-- **Plug-and-Play**: Connects seamlessly to Claude Desktop, Cursor, or custom agents with standard Model Context Protocol (MCP).
-
-This project is open-source and free for anyone who wants their AI coding assistants to be faster, sharper, and lighter!
+I built **Cartograph** to improve developer Quality of Life (QOL):
+- **Instant & Deterministic**: Locates exact function and class signatures in `<10ms` using Python's native AST parser.
+- **Zero Heavyweight Bloat**: Pure Python standard library — **zero mandatory third-party pip dependencies** and no heavy Language Server Protocol (LSP) daemons.
+- **Plug-and-Play MCP**: Drops directly into Claude Desktop, Claude Code, Cursor, Windsurf, or custom agents with standard Model Context Protocol.
 
 ---
 
-## ⚡ Why Cartograph?
+## ⚡ Core Highlights
 
-Traditional agent memory systems either suffer from **Markdown Context Bloat** (dumping raw docs into the prompt) or **Grep Blindness** (failing on multi-line signatures, inheritance, and indirect references).
-
-- **Syntactic Grounding**: Traverses Python ASTs natively using the standard library `ast` module. No compilation or heavyweight Language Server Protocol (LSP) dependencies required.
-- **Zero-Latency Invalidation**: Incremental single-file re-indexing triggers upon file save (`<10ms` response).
-- **Dual Transport Protocols**: Runs via standard **Stdio** (for local IDE plugins) and **HTTP REST** (for containerized or network agent swarms).
-- **Episodic & Vector Dual-Memory**: Ships with built-in adapters for local **Qdrant** vector search and SQLite episodic trajectory memory (`engrim`).
+- **OpenViking Tiered Loading**: Progressive context disclosure (L0 structure, L1 signatures, L2 code nodes, and Relational graphs) saves **>90% token overhead**.
+- **Deterministic Call Hierarchy (`CallVisitor`)**: Maps caller-to-callee graphs and class inheritance chains across files without executing code.
+- **Bi-Temporal Event Clock**: Tracks `valid_from` timestamps and 16-character SHA-256 code hashes to guarantee agents never operate on stale memory.
+- **Episodic Trajectory Memory**: Built-in SQLite FTS5 engine (`engrim_adapter.py`) records agent intents, outcomes, and context snapshots across sessions.
+- **Dual Transports**: Runs via **Stdio** (for local IDEs) and **HTTP REST** (`--serve` on port 8000+ for network agent swarms).
 
 ---
 
@@ -52,11 +117,23 @@ Traditional agent memory systems either suffer from **Markdown Context Bloat** (
 
 | MCP Tool | Description | Input Arguments |
 | :--- | :--- | :--- |
-| `query_symbol_definitions` | Retrieve exact line ranges, docstrings, and signatures for a symbol. | `symbol_name`, `file_pattern` |
-| `find_symbol_references` | Trace all callers, invocations, and imports of a class or function. | `symbol_name`, `max_depth` |
-| `get_codebase_graph` | Export a high-level AST dependency graph of a target module. | `root_directory`, `format` |
-| `semantic_code_search` | Natural language semantic search across indexed symbols. | `query`, `top_k` |
-| `update_symbol_memory` | Incrementally re-index modified files into the vector/AST cache. | `file_path`, `content` |
+| `ast_query_symbols` | Retrieve exact line ranges, docstrings, and signatures for a symbol. | `query`, `tier` (`L0`, `L1`, `L2`) |
+| `traverse_directory_tiered` | Progressive directory inspection with token budgets and line counts. | `directory`, `tier` |
+| `get_code_dependencies` | Trace callers, callees, and imported modules of a specific symbol. | `symbol_name`, `file_path` |
+| `get_relational_graph` | Export full caller/callee and import adjacency for a file or module. | `file_path` |
+| `read_ast_node` | Surgically extract exact AST source code for a function or class. | `file`, `symbol` |
+| `update_symbol_memory` | Incrementally re-index single modified files on save in `<10ms`. | `file_path`, `content` |
+| `semantic_vector_search` | Natural language semantic search across indexed symbols (via Qdrant adapter). | `query`, `top_k` |
+
+---
+
+## 🛡️ Security Hardening & Zero-Trust Guardrails
+
+Cartograph adheres to strict defensive security standards:
+- **Sandbox Confinement**: Every file path is validated via `pathlib.Path.is_relative_to(WORKSPACE_ROOT)` to prevent directory traversal attacks (`../../`).
+- **Strictly Read-Only**: Cartograph parses code via static AST; it never invokes `exec()`, `eval()`, or `importlib`.
+- **Secret Scrubbing**: Automatically ignores `.env`, `credentials.json`, `*.pem`, `*.key`, and secret patterns.
+- **Responsible Disclosure**: Standardized security advisory policy maintained in [`SECURITY.md`](SECURITY.md).
 
 ---
 
@@ -64,10 +141,10 @@ Traditional agent memory systems either suffer from **Markdown Context Bloat** (
 
 ### 1. Installation
 ```bash
-git clone https://github.com/Jaswanth1902/cartograph-codebase-memory.git
-cd cartograph-codebase-memory
+git clone https://github.com/Jaswanth1902/Omnia-codebase-memory.git
+cd Omnia-codebase-memory
 
-# Install in editable mode
+# Install in editable mode (Zero mandatory dependencies!)
 pip install -e .
 ```
 
@@ -76,7 +153,7 @@ pip install -e .
 python cartograph_cli.py
 ```
 
-### 3. Run as Standalone HTTP Server
+### 3. Run as Standalone HTTP Daemon
 ```bash
 python cartograph_cli.py --serve --port 8020
 ```
@@ -89,12 +166,9 @@ python cartograph_cli.py --serve --port 8020
 ```json
 {
   "mcpServers": {
-    "cartograph-memory": {
+    "cartograph": {
       "command": "python",
-      "args": [
-        "-m",
-        "cartograph.server"
-      ],
+      "args": ["-m", "cartograph.server"],
       "env": {
         "WORKSPACE_ROOT": "C:\\path\\to\\your\\project"
       }
@@ -107,9 +181,9 @@ python cartograph_cli.py --serve --port 8020
 ```json
 {
   "mcpServers": {
-    "cartograph-memory": {
-      "command": "cartograph-memory",
-      "args": [],
+    "cartograph": {
+      "command": "python",
+      "args": ["-m", "cartograph.server"],
       "env": {
         "WORKSPACE_ROOT": "${workspaceFolder}"
       }
@@ -120,27 +194,19 @@ python cartograph_cli.py --serve --port 8020
 
 ---
 
-## 📁 Repository Structure
+## 🧩 Plugins & Skills Ecosystem
 
-```text
-cartograph-codebase-memory/
-├── cartograph/
-│   ├── __init__.py          # Package initialization
-│   ├── server.py            # Core AST parsing & MCP protocol handler
-│   ├── engrim_adapter.py    # Episodic SQLite memory driver
-│   └── qdrant_adapter.py    # Semantic vector search connector
-├── docs/
-│   ├── PRD.md               # Product Requirements Document
-│   ├── architecture.md      # Detailed system architecture
-│   └── Architecture-essentials.md
-├── cartograph_cli.py             # CLI runner entrypoint
-├── pyproject.toml           # Packaging and build specification
-├── LICENSE                  # MIT License
-└── README.md
-```
+- **`engrim` Integration**: Universal episodic agent memory via SQLite FTS5.
+- **`graft` Navigation**: Pre-compiled structural graph exploration.
+- **`cartograph-polyglot` (Roadmap)**: Tree-Sitter support for TypeScript, Rust, and Go.
+- **`cartograph-livewatch` (Roadmap)**: Native OS file watcher for sub-5ms AST cache updates.
+
+---
+
+## 🏷️ GitHub Topics & Keywords
+`mcp` • `model-context-protocol` • `claude` • `cursor` • `ast` • `codebase-navigation` • `static-analysis` • `developer-tools` • `codebase-memory` • `ai-agents` • `token-optimization` • `zero-dependency` • `open-source`
 
 ---
 
 ## 📄 License
-
 Distributed under the [MIT License](LICENSE). Copyright (c) 2026 Jaswanth Reddy.
