@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/cartograph_banner.svg" alt="Cartograph Banner" width="100%" />
+</p>
+
 # 🗺️ Cartograph — Deterministic Codebase Mapping & AST Memory MCP Server
 
 [![MCP Protocol](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol%20(MCP)-blueviolet?style=flat-square)](https://github.com/Jaswanth1902/Omnia-codebase-memory)
