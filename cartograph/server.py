@@ -1552,7 +1552,11 @@ def run_self_test():
     if test_script.exists():
         symbols = indexer.index_file(test_script)
         print(f"Indexed {test_script.name}: Found {len(symbols)} symbols.")
+<<<<<<< HEAD:cartograph/server.py
         assert len(symbols) > 0, "Failed to parse symbols from server.py"
+=======
+        assert len(symbols) > 0, f"Failed to parse symbols from {test_script.name}"
+>>>>>>> e8a1a4a (feat(media): embed deterministic 104KB quickstart terminal GIF demo into README):omnia/server.py
 
         # 1. Test L0 Abstract
         l0_res = indexer.query_symbols("ASTSymbolIndexer", tier="L0")
@@ -1584,7 +1588,17 @@ def run_self_test():
         assert isinstance(adj_list, dict), "Adjacency list is not a dictionary"
         print(f"✓ Adjacency List Verified: Source modules mapped in zero-dependency graph")
 
+<<<<<<< HEAD:cartograph/server.py
     # 6. Test JSON-RPC MCP Handlers
+=======
+        # 6. Test Tiered Directory Traversal
+        trav_l0 = indexer.traverse_directory("omnia", tier="L0", max_depth=1)
+        assert trav_l0["tier"] == "L0", "Traversal tier mismatch"
+        assert trav_l0["total_files"] > 0, "Traversal returned 0 files"
+        print(f"✓ Traversal Verified: {trav_l0['total_files']} files mapped at L0 abstract tier")
+
+    # 7. Test JSON-RPC MCP Handlers
+>>>>>>> e8a1a4a (feat(media): embed deterministic 104KB quickstart terminal GIF demo into README):omnia/server.py
     init_res = handle_initialize(1)
     assert init_res["result"]["serverInfo"]["name"] == "cartograph-mcp"
     tools_res = handle_tools_list(2)
@@ -1597,8 +1611,16 @@ def run_self_test():
     assert "content" in call_rel["result"]
     assert "mermaid_graph" in call_rel["result"]["content"][0]["text"]
 
+<<<<<<< HEAD:cartograph/server.py
     # 7. Test Anti-Thrashing: read_ast_node symbol-based extraction
     call_node = handle_tool_call(indexer, 5, {"name": "read_ast_node", "arguments": {"file": str(test_script), "symbol": "ASTSymbolIndexer"}})
+=======
+    call_dep = handle_tool_call(indexer, 5, {"name": "get_code_dependencies", "arguments": {"symbol_name": "ASTSymbolIndexer"}})
+    assert "content" in call_dep["result"]
+    assert "mermaid_graph" in call_dep["result"]["content"][0]["text"]
+
+    # 8. Test Anti-Thrashing: read_ast_node symbol-based extraction
+    call_node = handle_tool_call(indexer, 6, {"name": "read_ast_node", "arguments": {"file": str(test_script), "symbol": "ASTSymbolIndexer"}})
     assert "content" in call_node["result"], "read_ast_node returned no content"
     node_payload = json.loads(call_node["result"]["content"][0]["text"])
     assert "source" in node_payload or "error" in node_payload, "read_ast_node payload missing 'source' or 'error'"
