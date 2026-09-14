@@ -11,6 +11,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![Security Policy](https://img.shields.io/badge/Security-Policy%20Active-brightgreen?style=flat-square)](SECURITY.md)
 
+> **Stop burning 40,000 tokens every time your AI coding agent searches your repo.**  
+> Cartograph indexes your entire codebase into a clean AST symbol map in `<10ms`—giving Claude Code, Cursor, and Windsurf instant, laser-accurate function and class context under 45MB RAM with zero vector hallucination and >90% token savings.
+
 <p align="center">
   <img src="assets/omnia_quickstart.gif" alt="Cartograph MCP Quickstart Demo" width="95%" />
 </p>
