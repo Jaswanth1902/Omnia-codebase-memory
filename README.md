@@ -11,6 +11,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![Security Policy](https://img.shields.io/badge/Security-Policy%20Active-brightgreen?style=flat-square)](SECURITY.md)
 
+<p align="center">
+  <img src="assets/omnia_quickstart.gif" alt="Cartograph MCP Quickstart Demo" width="95%" />
+</p>
+
 **Cartograph** is a high-velocity **Codebase Mapmaker & AST Context Engine** built for AI coding agents (*Claude Desktop*, *Claude Code*, *Cursor*, *Windsurf*, *Antigravity*). Instead of burning token budgets with brute-force text grep or multi-megabyte markdown dumps, Cartograph constructs a deterministic topological map of your codebase using Python's native Abstract Syntax Tree (AST), call hierarchies, and progressive tiered context disclosure.
 
 ---
