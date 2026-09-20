@@ -1,0 +1,32 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/server-manifest.json",
+  "name": "cartograph-mcp",
+  "title": "Omnia Codebase Memory (Cartograph)",
+  "version": "1.0.0",
+  "description": "Deterministic Codebase Mapping, AST Symbol Navigation and Tiered Memory MCP Server for AI Agents.",
+  "author": "Jaswanth Reddy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jaswanth1902/Omnia-codebase-memory.git"
+  },
+  "runtime": "python",
+  "entrypoint": "cartograph.server:main",
+  "transport": {
+    "type": "stdio"
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": false
+  },
+  "keywords": [
+    "ast",
+    "codebase-memory",
+    "knowledge-graph",
+    "mcp",
+    "model-context-protocol",
+    "python",
+    "semantic-search"
+  ]
+}
