@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue?style=flat-square&logo=python)](https://github.com/Jaswanth1902/Omnia-codebase-memory)
 [![AST Indexing](https://img.shields.io/badge/Lookup%20Latency-%3C10ms-brightgreen?style=flat-square)](https://github.com/Jaswanth1902/Omnia-codebase-memory)
 [![Token Savings](https://img.shields.io/badge/Token%20Savings-%3E90%25-emerald?style=flat-square)](https://github.com/Jaswanth1902/Omnia-codebase-memory)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![Security Policy](https://img.shields.io/badge/Security-Policy%20Active-brightgreen?style=flat-square)](SECURITY.md)
 
 > **Stop burning 40,000 tokens every time your AI coding agent searches your repo.**  
@@ -220,4 +220,4 @@ python cartograph_cli.py --serve --port 8020
 ---
 
 ## 📄 License
-Distributed under the [MIT License](LICENSE). Copyright (c) 2026 Jaswanth Reddy.
+Distributed under the [Apache License 2.0](LICENSE). Copyright (c) 2026 Jaswanth Reddy.

@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Deterministic Codebase Mapping, AST Symbol Navigation & Tiered Memory MCP Server"
 readme = "README.md"
 authors = [{ name = "Jaswanth Reddy", email = "jaswanthreddy1537@gmail.com" }]
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 dependencies = []
 
