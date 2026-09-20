@@ -1,0 +1,9 @@
+# Smithery MCP Server Configuration
+# https://smithery.ai/docs/config
+startCommand:
+  type: stdio
+  config:
+    command: python
+    args: ["-m", "cartograph.server"]
+    env:
+      PYTHONUNBUFFERED: "1"
