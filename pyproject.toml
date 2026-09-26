@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "cartograph-mcp"
@@ -16,10 +16,14 @@ dependencies = []
 vector = ["qdrant-client>=1.7.0"]
 
 [project.scripts]
-cartograph = "cartograph.server:main"
-carto = "cartograph.server:main"
+cartograph = "cartograph.cli:main"
+cartograph-mcp = "cartograph.server:main"
 
 [project.urls]
 Homepage = "https://github.com/Jaswanth1902/Omnia-codebase-memory"
 Repository = "https://github.com/Jaswanth1902/Omnia-codebase-memory.git"
 Issues = "https://github.com/Jaswanth1902/Omnia-codebase-memory/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cartograph"]
+
