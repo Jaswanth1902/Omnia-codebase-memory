@@ -15,9 +15,9 @@ import argparse
 import re
 import hashlib
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Dict, Any, List, Optional, Set, Tuple
+from typing import Dict, Any, List, Optional, Set, Tuple, Union
 
 # Set UTF-8 encoding on Windows
 if sys.platform == "win32":
@@ -32,7 +32,7 @@ if sys.platform == "win32":
         except Exception:
             pass
 
-WORKSPACE_ROOT = Path(os.environ.get("WORKSPACE_ROOT", Path.cwd()))
+WORKSPACE_ROOT = Path(os.environ.get("WORKSPACE_ROOT", Path.cwd())).resolve()
 
 try:
     from adaptive_profiler import with_profiling
@@ -50,19 +50,20 @@ def _get_iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _determine_namespace(rel_path: str, symbol_name: Optional[str] = None) -> str:
+def _determine_namespace(rel_path: Union[str, Path], symbol_name: Optional[str] = None) -> str:
     """
     Namespace Isolation Policy:
     - Private: Scratchpads, .cache files, or internal private symbols (_func)
     - Group:<Subsystem>: Domain/subsystem modules (e.g. Group:Supervisor_Mesh)
     - Global: Root files, core contracts, shared interfaces
     """
-    norm_path = rel_path.replace("\\", "/")
-    if ".cache" in norm_path or "scratch" in norm_path or "temp" in norm_path:
+    p = Path(PureWindowsPath(str(rel_path)).as_posix())
+    norm_path = p.as_posix()
+    if any(k in norm_path for k in (".cache", "scratch", "temp")):
         return "Private:scratch"
     if symbol_name and symbol_name.startswith("_") and not (symbol_name.startswith("__") and symbol_name.endswith("__")):
         return f"Private:{norm_path}:{symbol_name}"
-    parts = norm_path.split("/")
+    parts = p.parts
     if len(parts) > 1 and parts[0] in ("05_Services", "01_Projects", "99_Meta", "02_Areas"):
         return f"Group:{parts[1]}"
     return "Global"
@@ -210,7 +211,7 @@ class ASTSymbolIndexer:
     """Extracts classes, functions, and relational dependency graphs (imports, inheritance, cross-file calls) using Python AST with OpenViking Tiered Loading (L0/L1/L2/RELATIONAL)."""
 
     def __init__(self, root_dir: Optional[Path] = None):
-        self.root_dir = root_dir if root_dir is not None else WORKSPACE_ROOT
+        self.root_dir = (root_dir if root_dir is not None else WORKSPACE_ROOT).resolve()
         self.symbol_index: Dict[str, List[Dict[str, Any]]] = {}
         self.file_abstracts: Dict[str, Dict[str, Any]] = {}
         self.raw_cache: Dict[str, str] = {}
@@ -221,9 +222,34 @@ class ASTSymbolIndexer:
         self.module_to_file: Dict[str, str] = {}
         self._pre_scan_modules()
 
+    def _canonical_key(self, file_path: Union[str, Path]) -> str:
+        """
+        Deterministic, cross-platform cache key generator using pathlib.Path.
+        Resolves paths, eliminates cross-platform backslash/slash discrepancies,
+        and outputs canonical relative POSIX strings across Linux/macOS/Windows.
+        """
+        if not file_path:
+            return ""
+        fp_str = str(file_path)
+        if "://" in fp_str:
+            return fp_str
+
+        p = Path(PureWindowsPath(fp_str).as_posix())
+        if not p.is_absolute():
+            p = self.root_dir / p
+
+        try:
+            p_res = p.resolve()
+            return p_res.relative_to(self.root_dir).as_posix()
+        except (ValueError, RuntimeError):
+            try:
+                return p.resolve().as_posix()
+            except Exception:
+                return p.as_posix()
+
     def _pre_scan_modules(self):
         """Pre-scans workspace to map module names/stems to workspace relative file paths."""
-        target_subdirs = ["05_Services", "99_Meta", "01_Projects"]
+        target_subdirs = ["05_Services", "99_Meta", "01_Projects", "cartograph"]
         for sub in target_subdirs:
             sub_path = self.root_dir / sub
             if not sub_path.exists():
@@ -233,7 +259,7 @@ class ASTSymbolIndexer:
                 if any(p.startswith(".") or p in ["venv", ".venv", "__pycache__", "node_modules", "mcp_envs", "build", "dist", ".cache"] for p in parts):
                     continue
                 try:
-                    rel = str(py_path.relative_to(self.root_dir)).replace("\\", "/")
+                    rel = self._canonical_key(py_path)
                     stem = py_path.stem
                     self.module_to_file[stem] = rel
                     dotted = rel[:-3].replace("/", ".") if rel.endswith(".py") else rel.replace("/", ".")
@@ -241,23 +267,25 @@ class ASTSymbolIndexer:
                 except Exception:
                     pass
 
-    def _resolve_module_target(self, current_file: Path, module_name: Optional[str], level: int = 0) -> Tuple[Optional[str], bool]:
+    def _resolve_module_target(self, current_file: Union[Path, str], module_name: Optional[str], level: int = 0) -> Tuple[Optional[str], bool]:
         """Resolves an import target to a relative workspace file path if local."""
+        cur_p = Path(current_file).resolve()
         if level > 0:
             try:
-                base = current_file.parent
+                base = cur_p.parent
                 for _ in range(level - 1):
                     base = base.parent
                 if module_name:
-                    target_p = base / f"{module_name.replace('.', '/')}.py"
-                    target_init = base / module_name.replace('.', '/') / "__init__.py"
+                    mod_parts = module_name.split(".")
+                    target_p = base.joinpath(*mod_parts).with_suffix(".py")
+                    target_init = base.joinpath(*mod_parts, "__init__.py")
                     if target_p.exists():
-                        return (str(target_p.relative_to(self.root_dir)).replace("\\", "/"), True)
+                        return (self._canonical_key(target_p), True)
                     if target_init.exists():
-                        return (str(target_init.relative_to(self.root_dir)).replace("\\", "/"), True)
+                        return (self._canonical_key(target_init), True)
                     return (f"{module_name}.py", True)
                 else:
-                    return (str(base.relative_to(self.root_dir)).replace("\\", "/"), True)
+                    return (self._canonical_key(base), True)
             except Exception:
                 return (module_name, False)
 
@@ -270,27 +298,37 @@ class ASTSymbolIndexer:
         if stem in self.module_to_file:
             return (self.module_to_file[stem], True)
 
-        local_p = current_file.parent / f"{module_name}.py"
+        mod_parts = module_name.split(".")
+        local_p = cur_p.parent.joinpath(*mod_parts).with_suffix(".py")
         if local_p.exists():
-            return (str(local_p.relative_to(self.root_dir)).replace("\\", "/"), True)
+            return (self._canonical_key(local_p), True)
 
-        ws_p = self.root_dir / f"{module_name.replace('.', '/')}.py"
+        ws_p = self.root_dir.joinpath(*mod_parts).with_suffix(".py")
         if ws_p.exists():
-            return (str(ws_p.relative_to(self.root_dir)).replace("\\", "/"), True)
+            return (self._canonical_key(ws_p), True)
 
         return (module_name, False)
 
-    def index_file(self, file_path: Path) -> List[Dict[str, Any]]:
+    def index_file(self, file_path: Union[Path, str]) -> List[Dict[str, Any]]:
         symbols = []
-        if not file_path.exists() or file_path.suffix != ".py":
+        key = self._canonical_key(file_path)
+        if not key:
+            return symbols
+
+        norm_p = Path(PureWindowsPath(str(file_path)).as_posix())
+        if not norm_p.is_absolute():
+            norm_p = self.root_dir / norm_p
+        resolved_file = norm_p.resolve()
+
+        if not resolved_file.exists() or resolved_file.suffix != ".py":
             return symbols
 
         try:
-            code = file_path.read_text(encoding="utf-8", errors="replace")
-            self.raw_cache[str(file_path)] = code
-            tree = ast.parse(code, filename=str(file_path))
+            code = resolved_file.read_text(encoding="utf-8", errors="replace")
+            self.raw_cache[key] = code
+            tree = ast.parse(code, filename=key)
 
-            rel_path = str(file_path.relative_to(self.root_dir)).replace("\\", "/") if self.root_dir in file_path.parents else str(file_path).replace("\\", "/")
+            rel_path = key
             module_doc = ast.get_docstring(tree) or ""
             doc_first_line = module_doc.strip().split("\n")[0] if module_doc else "No docstring provided"
 
@@ -412,7 +450,7 @@ class ASTSymbolIndexer:
                     for alias in node.names:
                         mod = alias.name
                         asname = alias.asname or mod
-                        target, is_local = self._resolve_module_target(file_path, mod, 0)
+                        target, is_local = self._resolve_module_target(resolved_file, mod, 0)
                         imp_primary, imp_tags = classify_thematic_domains(f"{rel_path} {mod} {asname}")
                         if not imp_tags:
                             imp_primary, imp_tags = file_primary_theme, list(file_thematic_tags)
@@ -442,7 +480,7 @@ class ASTSymbolIndexer:
                 elif isinstance(node, ast.ImportFrom):
                     mod = node.module
                     level = node.level
-                    target, is_local = self._resolve_module_target(file_path, mod, level)
+                    target, is_local = self._resolve_module_target(resolved_file, mod, level)
                     sym_names = [a.name for a in node.names]
                     imp_primary, imp_tags = classify_thematic_domains(f"{rel_path} {mod or ''} {' '.join(sym_names)}")
                     if not imp_tags:
@@ -531,8 +569,7 @@ class ASTSymbolIndexer:
 
             # Consolidate Dependency Edges & Build Zero-Dependency Adjacency List
             all_edges = import_edges + inheritance_edges + call_edges
-            self.file_dependencies[str(file_path)] = all_edges
-            self.file_dependencies[rel_path] = all_edges
+            self.file_dependencies[key] = all_edges
 
             local_adj = set()
             for edge in all_edges:
@@ -548,7 +585,7 @@ class ASTSymbolIndexer:
                     self.reverse_adjacency[tgt].append(rel_path)
 
             # L0 Abstract Definition
-            self.file_abstracts[str(file_path)] = {
+            self.file_abstracts[key] = {
                 "file": rel_path,
                 "lines_count": len(code.splitlines()),
                 "char_count": len(code),
@@ -561,9 +598,9 @@ class ASTSymbolIndexer:
                 "primary_theme": file_primary_theme
             }
         except Exception as e:
-            symbols.append({"type": "error", "error": str(e), "file": str(file_path)})
+            symbols.append({"type": "error", "error": str(e), "file": key})
 
-        self.symbol_index[str(file_path)] = symbols
+        self.symbol_index[key] = symbols
         return symbols
 
     def generate_mermaid_flowchart(self, file_key: Optional[str] = None, max_edges: int = 25, direction: str = "TD") -> str:
@@ -585,14 +622,13 @@ class ASTSymbolIndexer:
         nodes_declared = set()
 
         if file_key:
-            fp = Path(file_key)
-            rel_file = str(fp.relative_to(self.root_dir)).replace("\\", "/") if (fp.is_absolute() and self.root_dir in fp.parents) else str(file_key).replace("\\", "/")
+            rel_file = self._canonical_key(file_key)
             focal_id = clean_id(rel_file)
             lines.append(f'    subgraph RelationalScope ["Relational Context: {rel_file}"]')
             lines.append(f'        {focal_id}["{rel_file}"]')
             nodes_declared.add(focal_id)
 
-            edges = self.file_dependencies.get(str(file_key), self.file_dependencies.get(rel_file, []))
+            edges = self.file_dependencies.get(rel_file, [])
             for edge in edges:
                 if edges_rendered >= max_edges:
                     break
@@ -665,20 +701,17 @@ class ASTSymbolIndexer:
             return {k: v for k, v in self.file_adjacency.items() if v}
         full = {}
         for f, edges in self.file_dependencies.items():
-            rel = str(Path(f).relative_to(self.root_dir)).replace("\\", "/") if (Path(f).is_absolute() and self.root_dir in Path(f).parents) else f.replace("\\", "/")
+            rel = self._canonical_key(f)
             full[rel] = sorted(list({e.get("target") for e in edges if e.get("target")}))
         return full
 
     def get_file_dependencies(self, file_path_str: str, allowed_namespaces: Optional[List[str]] = None, as_of_time: Optional[str] = None, theme: Optional[str] = None) -> Dict[str, Any]:
         """Returns comprehensive outgoing and incoming dependency edges and Mermaid flowchart for a file."""
-        fp = Path(file_path_str)
-        if not fp.is_absolute():
-            fp = self.root_dir / fp
-        key = str(fp)
+        key = self._canonical_key(file_path_str)
         if key not in self.symbol_index:
-            self.index_file(fp)
-        rel = str(fp.relative_to(self.root_dir)).replace("\\", "/") if (self.root_dir in fp.parents) else file_path_str.replace("\\", "/")
-        raw_outgoing = self.file_dependencies.get(key, self.file_dependencies.get(rel, []))
+            self.index_file(file_path_str)
+        rel = key
+        raw_outgoing = self.file_dependencies.get(key, [])
         outgoing = [
             e for e in raw_outgoing
             if _is_namespace_allowed(e.get("namespace", "Global"), allowed_namespaces)
@@ -744,21 +777,18 @@ class ASTSymbolIndexer:
         - RELATIONAL: Deep relational mapping, zero-dependency adjacency list, and dynamic Mermaid flowchart.
         """
         tier_norm = tier.upper()
-        fp = Path(file_path_str)
-        if not fp.is_absolute():
-            fp = self.root_dir / fp
-        key = str(fp)
+        key = self._canonical_key(file_path_str)
 
         if key not in self.symbol_index:
-            self.index_file(fp)
+            self.index_file(file_path_str)
 
-        rel_path = str(fp.relative_to(self.root_dir)).replace("\\", "/") if (self.root_dir in fp.parents) else str(file_path_str).replace("\\", "/")
+        rel_path = key
         abstract = self.file_abstracts.get(key, {
             "file": rel_path,
             "tier": "L0",
             "abstract": "Unindexed file"
         })
-        deps = self.file_dependencies.get(key, self.file_dependencies.get(rel_path, []))
+        deps = self.file_dependencies.get(key, [])
         adj = self.file_adjacency.get(rel_path, [])
         mermaid_chart = self.generate_mermaid_flowchart(file_key=key)
 
@@ -780,12 +810,17 @@ class ASTSymbolIndexer:
             }
         elif tier_norm == "L2":
             raw_code = self.raw_cache.get(key)
-            if raw_code is None and fp.exists():
-                try:
-                    raw_code = fp.read_text(encoding="utf-8", errors="replace")
-                    self.raw_cache[key] = raw_code
-                except Exception as e:
-                    raw_code = f"Error reading source: {e}"
+            if raw_code is None:
+                norm_p = Path(PureWindowsPath(str(file_path_str)).as_posix())
+                if not norm_p.is_absolute():
+                    norm_p = self.root_dir / norm_p
+                resolved_p = norm_p.resolve()
+                if resolved_p.exists():
+                    try:
+                        raw_code = resolved_p.read_text(encoding="utf-8", errors="replace")
+                        self.raw_cache[key] = raw_code
+                    except Exception as e:
+                        raw_code = f"Error reading source: {e}"
             return {
                 "tier": "L2",
                 "file": abstract.get("file", rel_path),
@@ -794,7 +829,7 @@ class ASTSymbolIndexer:
                 "dependencies": deps,
                 "adjacency": adj,
                 "mermaid_graph": mermaid_chart,
-                "raw_source": raw_code
+                "raw_source": raw_code or ""
             }
         else:
             # Default L1
@@ -888,8 +923,9 @@ class ASTSymbolIndexer:
         """
         now = invalidated_at or _get_iso_now()
         count = 0
+        norm_filter = self._canonical_key(file_path) if file_path else None
         for fp, syms in self.symbol_index.items():
-            if file_path and file_path not in fp:
+            if norm_filter and norm_filter != fp and norm_filter not in fp:
                 continue
             for s in syms:
                 if s.get("name") == symbol_name and s.get("valid_until") is None:
@@ -915,8 +951,9 @@ class ASTSymbolIndexer:
         """
         target_time = as_of_time or _get_iso_now()
         active_symbols = []
+        norm_filter = self._canonical_key(file_path) if file_path else None
         for fp, syms in self.symbol_index.items():
-            if file_path and file_path not in fp:
+            if norm_filter and norm_filter != fp and norm_filter not in fp:
                 continue
             for s in syms:
                 if symbol_name and s.get("name") != symbol_name:
@@ -929,7 +966,7 @@ class ASTSymbolIndexer:
 
         active_edges = []
         for fp, edges in self.file_dependencies.items():
-            if file_path and file_path not in fp:
+            if norm_filter and norm_filter != fp and norm_filter not in fp:
                 continue
             for e in edges:
                 if _is_namespace_allowed(e.get("namespace", "Global"), allowed_namespaces) and _is_temporally_valid(e.get("valid_from"), e.get("valid_until"), target_time):
@@ -952,26 +989,26 @@ class ASTSymbolIndexer:
         Can emit L1 (AST overviews) or L2 (raw code blocks) when explicitly requested.
         """
         tier_norm = tier.upper()
-        target_dir = self.root_dir / rel_dir if rel_dir else self.root_dir
+        target_dir = (self.root_dir / rel_dir).resolve() if rel_dir else self.root_dir.resolve()
         if not target_dir.exists() or not target_dir.is_dir():
             return {"error": f"Directory not found: {rel_dir}", "items": []}
 
         items = []
         for py_path in target_dir.rglob("*.py"):
-            if any(part in py_path.parts for part in ["venv", ".git", "__pycache__", "node_modules"]):
+            if any(part in py_path.parts for part in ["venv", ".git", "__pycache__", "node_modules", ".cache"]):
                 continue
             try:
-                rel = py_path.relative_to(target_dir)
+                rel = py_path.resolve().relative_to(target_dir)
                 if len(rel.parts) > max_depth:
                     continue
             except Exception:
                 pass
 
-            payload = self.get_tier_payload(str(py_path), tier=tier_norm)
+            payload = self.get_tier_payload(py_path.as_posix(), tier=tier_norm)
             items.append(payload)
 
         return {
-            "directory": str(rel_dir) or "root",
+            "directory": Path(rel_dir).as_posix() if rel_dir else "root",
             "tier": tier_norm,
             "total_files": len(items),
             "items": items
@@ -993,15 +1030,15 @@ class ASTSymbolIndexer:
             Dict with 'symbol', 'type', 'line', 'source', 'file', 'docstring', and temporal metadata.
             On failure: 'error' key with explanation.
         """
-        # Normalize to absolute path
-        fp = Path(file_path)
-        if not fp.is_absolute():
-            fp = self.root_dir / file_path
-        fp_str = str(fp)
-        rel_path = str(fp.relative_to(self.root_dir)).replace("\\", "/") if (fp.is_absolute() and self.root_dir in fp.parents) else file_path.replace("\\", "/")
+        key = self._canonical_key(file_path)
+        norm_p = Path(PureWindowsPath(str(file_path)).as_posix())
+        if not norm_p.is_absolute():
+            norm_p = self.root_dir / norm_p
+        fp = norm_p.resolve()
+        rel_path = key
 
         # Ensure file is indexed
-        syms = self.symbol_index.get(fp_str)
+        syms = self.symbol_index.get(key)
         if syms is None:
             syms = self.index_file(fp)
 
@@ -1032,18 +1069,18 @@ class ASTSymbolIndexer:
             }
 
         # Extract raw source via AST get_source_segment
-        raw_code = self.raw_cache.get(fp_str)
+        raw_code = self.raw_cache.get(key)
         if raw_code is None and fp.exists():
             try:
                 raw_code = fp.read_text(encoding="utf-8", errors="replace")
-                self.raw_cache[fp_str] = raw_code
+                self.raw_cache[key] = raw_code
             except Exception as e:
                 return {"error": f"Cannot read source: {e}", "file": rel_path}
 
         node_source = None
         if raw_code:
             try:
-                tree = ast.parse(raw_code, filename=fp_str)
+                tree = ast.parse(raw_code, filename=key)
                 for node in ast.walk(tree):
                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                         if node.name == target_sym["name"]:
@@ -1075,7 +1112,7 @@ class ASTSymbolIndexer:
     def build_initial_index(self, max_files: int = 100) -> int:
         self._pre_scan_modules()
         count = 0
-        target_subdirs = ["05_Services", "99_Meta"]
+        target_subdirs = ["05_Services", "99_Meta", "cartograph"]
         for sub in target_subdirs:
             sub_path = self.root_dir / sub
             if not sub_path.exists():
@@ -1095,7 +1132,8 @@ class ASTSymbolIndexer:
         Dynamically inserts or updates a symbol definition in the memory index.
         Used by Cloud Hippocampus and testing harnesses for direct state updates.
         """
-        fp = definition_data.get("file_path") or "memory://dynamic"
+        raw_fp = definition_data.get("file_path") or "memory://dynamic"
+        fp = self._canonical_key(raw_fp)
         if fp not in self.symbol_index:
             self.symbol_index[fp] = []
 
@@ -1388,19 +1426,17 @@ def handle_tool_call(indexer: ASTSymbolIndexer, msg_id, params: Dict[str, Any]):
         }
     elif name == "update_symbol_memory":
         fp_str = args.get("file_path", "")
-        fp = Path(fp_str)
-        if not fp.is_absolute():
-            fp = WORKSPACE_ROOT / fp
-        syms = indexer.index_file(fp)
+        syms = indexer.index_file(fp_str)
+        canonical = indexer._canonical_key(fp_str)
         return {
             "jsonrpc": "2.0",
             "id": msg_id,
             "result": {
                 "content": [{"type": "text", "text": json.dumps({
                     "status": "SUCCESS",
-                    "file": str(fp),
+                    "file": canonical,
                     "symbols_indexed": len(syms),
-                    "abstract": indexer.file_abstracts.get(str(fp), {}).get("abstract", "")
+                    "abstract": indexer.file_abstracts.get(canonical, {}).get("abstract", "")
                 }, indent=2)}]
             }
         }
@@ -1552,11 +1588,7 @@ def run_self_test():
     if test_script.exists():
         symbols = indexer.index_file(test_script)
         print(f"Indexed {test_script.name}: Found {len(symbols)} symbols.")
-<<<<<<< HEAD:cartograph/server.py
-        assert len(symbols) > 0, "Failed to parse symbols from server.py"
-=======
         assert len(symbols) > 0, f"Failed to parse symbols from {test_script.name}"
->>>>>>> e8a1a4a (feat(media): embed deterministic 104KB quickstart terminal GIF demo into README):omnia/server.py
 
         # 1. Test L0 Abstract
         l0_res = indexer.query_symbols("ASTSymbolIndexer", tier="L0")
@@ -1565,7 +1597,7 @@ def run_self_test():
         print(f"✓ L0 Query Verified: Abstract retrieved ({l0_res[0].get('abstract')[:50]}...)")
 
         # 2. Test L1 Default Signatures & Relational Integration
-        l1_payload = indexer.get_tier_payload(str(test_script), tier="L1")
+        l1_payload = indexer.get_tier_payload(test_script.as_posix(), tier="L1")
         assert "dependencies" in l1_payload, "L1 missing dependencies list"
         assert "mermaid_graph" in l1_payload, "L1 missing dynamic Mermaid diagram"
         assert "flowchart TD" in l1_payload["mermaid_graph"], "Mermaid diagram missing flowchart TD declaration"
@@ -1579,7 +1611,7 @@ def run_self_test():
         print(f"✓ L2 Query Verified: Full raw source retrieved on demand ({len(l2_res[0]['raw_source'])} chars)")
 
         # 4. Test RELATIONAL Tier & GraphRAG Extraction
-        rel_payload = indexer.get_tier_payload(str(test_script), tier="RELATIONAL")
+        rel_payload = indexer.get_tier_payload(test_script.as_posix(), tier="RELATIONAL")
         assert rel_payload["tier"] == "RELATIONAL", "RELATIONAL tier mismatch"
         assert "dependencies" in rel_payload and len(rel_payload["dependencies"]) > 0, "Failed to extract dependency edges"
 
@@ -1588,17 +1620,13 @@ def run_self_test():
         assert isinstance(adj_list, dict), "Adjacency list is not a dictionary"
         print(f"✓ Adjacency List Verified: Source modules mapped in zero-dependency graph")
 
-<<<<<<< HEAD:cartograph/server.py
-    # 6. Test JSON-RPC MCP Handlers
-=======
         # 6. Test Tiered Directory Traversal
-        trav_l0 = indexer.traverse_directory("omnia", tier="L0", max_depth=1)
+        trav_l0 = indexer.traverse_directory("cartograph", tier="L0", max_depth=1)
         assert trav_l0["tier"] == "L0", "Traversal tier mismatch"
         assert trav_l0["total_files"] > 0, "Traversal returned 0 files"
         print(f"✓ Traversal Verified: {trav_l0['total_files']} files mapped at L0 abstract tier")
 
     # 7. Test JSON-RPC MCP Handlers
->>>>>>> e8a1a4a (feat(media): embed deterministic 104KB quickstart terminal GIF demo into README):omnia/server.py
     init_res = handle_initialize(1)
     assert init_res["result"]["serverInfo"]["name"] == "cartograph-mcp"
     tools_res = handle_tools_list(2)
@@ -1607,20 +1635,16 @@ def run_self_test():
     call_res = handle_tool_call(indexer, 3, {"name": "ast_query_symbols", "arguments": {"query": "ASTSymbolIndexer", "tier": "L1"}})
     assert "content" in call_res["result"]
 
-    call_rel = handle_tool_call(indexer, 4, {"name": "get_relational_graph", "arguments": {"file_path": str(test_script)}})
+    call_rel = handle_tool_call(indexer, 4, {"name": "get_relational_graph", "arguments": {"file_path": test_script.as_posix()}})
     assert "content" in call_rel["result"]
     assert "mermaid_graph" in call_rel["result"]["content"][0]["text"]
 
-<<<<<<< HEAD:cartograph/server.py
-    # 7. Test Anti-Thrashing: read_ast_node symbol-based extraction
-    call_node = handle_tool_call(indexer, 5, {"name": "read_ast_node", "arguments": {"file": str(test_script), "symbol": "ASTSymbolIndexer"}})
-=======
     call_dep = handle_tool_call(indexer, 5, {"name": "get_code_dependencies", "arguments": {"symbol_name": "ASTSymbolIndexer"}})
     assert "content" in call_dep["result"]
     assert "mermaid_graph" in call_dep["result"]["content"][0]["text"]
 
     # 8. Test Anti-Thrashing: read_ast_node symbol-based extraction
-    call_node = handle_tool_call(indexer, 6, {"name": "read_ast_node", "arguments": {"file": str(test_script), "symbol": "ASTSymbolIndexer"}})
+    call_node = handle_tool_call(indexer, 6, {"name": "read_ast_node", "arguments": {"file": test_script.as_posix(), "symbol": "ASTSymbolIndexer"}})
     assert "content" in call_node["result"], "read_ast_node returned no content"
     node_payload = json.loads(call_node["result"]["content"][0]["text"])
     assert "source" in node_payload or "error" in node_payload, "read_ast_node payload missing 'source' or 'error'"
@@ -1642,7 +1666,7 @@ def main():
     args = parser.parse_args()
 
     if args.root_dir:
-        WORKSPACE_ROOT = Path(args.root_dir)
+        WORKSPACE_ROOT = Path(args.root_dir).resolve()
 
     if args.test:
         sys.exit(run_self_test())

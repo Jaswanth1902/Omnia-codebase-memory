@@ -1,7 +1,7 @@
 import sqlite3
 import json
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 
 class EngrimAdapter:
     """
@@ -9,9 +9,9 @@ class EngrimAdapter:
     Provides local-first, project-scoped SQLite memory with FTS5.
     """
     
-    def __init__(self, project_dir: Path):
-        self.project_dir = Path(project_dir)
-        self.db_path = self.project_dir / "engrim.db"
+    def __init__(self, project_dir: Union[Path, str]):
+        self.project_dir = Path(project_dir).resolve()
+        self.db_path = (self.project_dir / "engrim.db").resolve()
         self._init_db()
         
     def _init_db(self):

@@ -1,6 +1,7 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct
 from pathlib import Path
+from typing import Union
 import uuid
 import os
 
@@ -10,12 +11,12 @@ class QdrantCodeIntelAdapter:
     Replaces brute-force grep_search for massive repositories by leveraging local vector search.
     """
     
-    def __init__(self, storage_path: Path):
-        self.storage_path = Path(storage_path) / "qdrant_db"
+    def __init__(self, storage_path: Union[Path, str]):
+        self.storage_path = (Path(storage_path) / "qdrant_db").resolve()
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
         # Initialize local Qdrant instance
-        self.client = QdrantClient(path=str(self.storage_path))
+        self.client = QdrantClient(path=self.storage_path.as_posix())
         self.collection_name = "antigravity_code_intel"
         
         self._init_collection()
@@ -29,8 +30,9 @@ class QdrantCodeIntelAdapter:
             )
             print(f"[*] Qdrant Collection '{self.collection_name}' created at {self.storage_path}")
 
-    def index_code_snippet(self, file_path: str, snippet: str, vector: list):
+    def index_code_snippet(self, file_path: Union[str, Path], snippet: str, vector: list):
         """Indexes a parsed AST code snippet into Qdrant for semantic retrieval."""
+        norm_path = Path(file_path).as_posix()
         point_id = str(uuid.uuid4())
         self.client.upsert(
             collection_name=self.collection_name,
@@ -39,7 +41,7 @@ class QdrantCodeIntelAdapter:
                     id=point_id,
                     vector=vector,
                     payload={
-                        "file_path": file_path,
+                        "file_path": norm_path,
                         "content": snippet
                     }
                 )
